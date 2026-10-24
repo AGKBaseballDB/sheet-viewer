@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>資料の閲覧</title>
+<style>
+:root{--bg:#e8ebef;--panel:#fff;--ink:#141c28;--muted:#5a6575;--rule:#c9d0da;--navy:#2a3f5f;--on-navy:#fff;--err:#b3261e;--focus:#d9822b}
+@media (prefers-color-scheme:dark){:root{--bg:#0e131a;--panel:#161d27;--ink:#e4e9f0;--muted:#97a3b3;--rule:#2f3a4a;--navy:#3a5680;--on-navy:#fff;--err:#ff8a80;--focus:#f0a050}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "BIZ UDPGothic","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(20,30,50,.12)}
+.top{background:var(--navy);color:var(--on-navy);padding:18px 22px}
+.top h1{margin:0;font-size:18px;letter-spacing:.06em}
+.top p{margin:2px 0 0;font-size:12px;opacity:.8}
+form{padding:22px;display:flex;flex-direction:column;gap:14px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:var(--muted)}
+input[type=password],input[type=text]{width:100%;font:inherit;font-size:17px;letter-spacing:.06em;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+button{font:inherit;font-weight:700;font-size:15px;border:0;border-radius:8px;padding:11px 14px;background:var(--navy);color:var(--on-navy);cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+.msg{min-height:1.4em;margin:0;font-size:13px;color:var(--err)}
+.msg.wait{color:var(--muted)}
+.foot{margin:0;padding:0 22px 18px;font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="top"><h1>資料の閲覧</h1><p>パスワードを入力してください</p></div>
+  <form id="f" autocomplete="on">
+    <input type="text" name="username" value="viewer" autocomplete="username" hidden>
+    <label class="f">パスワード
+      <input id="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required autofocus>
+    </label>
+    <div class="row">
+      <label><input id="show" type="checkbox">表示する</label>
+      <label><input id="keep" type="checkbox">この端末で30日間ログインを保持</label>
+    </div>
+    <button id="go" type="submit">開く</button>
+    <p id="msg" class="msg" role="status" aria-live="polite"></p>
+  </form>
+  <p class="foot">このページの内容は暗号化されており、正しいパスワードでのみ表示されます。共用の端末では「ログインを保持」を使わないでください。</p>
+</main>
+<script type="application/octet-stream" id="payload" data-salt="__SALT__" data-iv="__IV__" data-iter="__ITER__" data-kid="__KID__">__DATA__</script>
+<script>
+__CORE__
+(function(){
+  var P=document.getElementById('payload'),salt=P.dataset.salt,iv=P.dataset.iv,iter=+P.dataset.iter,kid=P.dataset.kid;
+  var SK='gate.keep.'+location.pathname;
+  var $=function(id){return document.getElementById(id)};
+  function msg(t,wait){var m=$('msg');m.textContent=t||'';m.className='msg'+(wait?' wait':'');}
+  function getKeep(){try{var v=JSON.parse(localStorage.getItem(SK)||'null');if(v&&v.kid===kid&&v.exp>Date.now())return v.k;}catch(e){}return null;}
+  function setKeep(raw){try{localStorage.setItem(SK,JSON.stringify({k:gB64e(raw),kid:kid,exp:Date.now()+30*864e5}));}catch(e){}}
+  function clearKeep(){try{localStorage.removeItem(SK);}catch(e){}}
+  function show(html){document.open();document.write(html);document.close();}
+  if(!(window.crypto&&crypto.subtle&&window.DecompressionStream)){msg('このブラウザでは開けません。最新のChrome・Safari・Edgeでお試しください。');$('go').disabled=true;return;}
+  var kept=getKeep();
+  if(kept){msg('開いています…',true);gOpen(gB64d(kept),iv,P.textContent).then(show).catch(function(){clearKeep();msg('');});}
+  $('show').addEventListener('change',function(){$('pw').type=this.checked?'text':'password';});
+  $('f').addEventListener('submit',function(e){
+    e.preventDefault();var pw=$('pw').value;if(!pw)return;
+    $('go').disabled=true;msg('確認しています…',true);
+    var raw;
+    gDeriveRaw(pw,salt,iter).then(function(r){raw=r;return gOpen(r,iv,P.textContent);})
+      .then(function(html){if($('keep').checked)setKeep(raw);else clearKeep();show(html);})
+      .catch(function(){$('go').disabled=false;msg('パスワードが違います。');$('pw').select();});
+  });
+})();
+</script>
+</body>
+</html>
